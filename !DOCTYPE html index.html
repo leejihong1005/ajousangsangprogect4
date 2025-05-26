@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>키오스크 주문 연습 게임</title>
+  <style>
+    body {
+      font-family: 'Nanum Gothic', sans-serif;
+      background-color: #fff8dc;
+      padding: 20px;
+      text-align: center;
+    }
+    h1 { font-size: 28px; color: #333; }
+    button {
+      font-size: 16px;
+      padding: 10px;
+      cursor: pointer;
+    }
+    .hidden { display: none; }
+    .menu-box {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 15px;
+      justify-items: center;
+      margin-top: 20px;
+    }
+    .menu-item {
+      background-color: #fff;
+      border: 2px solid #ccc;
+      padding: 10px;
+      border-radius: 10px;
+      width: 150px;
+    }
+    .order-list, .mission-box {
+      margin-top: 20px;
+      font-size: 18px;
+    }
+    .order-item {
+      background: #eee;
+      padding: 10px;
+      border-radius: 10px;
+      margin: 5px auto;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      align-items: center;
+    }
+    .qty-btn, .remove-btn {
+      font-size: 18px;
+      width: 30px;
+      height: 30px;
+      cursor: pointer;
+    }
+    .success { color: green; font-weight: bold; }
+    .fail { color: red; font-weight: bold; }
+  </style>
+  <link href="https://fonts.googleapis.com/earlyaccess/nanumgothic.css" rel="stylesheet">
+</head>
+<body>
+  <h1>🍔 키오스크 주문 게임</h1>
+  <p class="mission-box" id="missionText"></p>
+
+  <div id="start">
+    <button onclick="startGame()">게임 시작</button>
+  </div>
+
+  <div id="menuSection" class="hidden">
+    <h2>🧾 메뉴를 선택하세요</h2>
+    <div class="menu-box">
+      <div class="menu-item"><button onclick="addItem('햄버거', 5000)">햄버거 (₩5,000)</button></div>
+      <div class="menu-item"><button onclick="addItem('감자튀김', 3000)">감자튀김 (₩3,000)</button></div>
+      <div class="menu-item"><button onclick="addItem('콜라', 2000)">콜라 (₩2,000)</button></div>
+      <div class="menu-item"><button onclick="addItem('핫도그', 4000)">핫도그 (₩4,000)</button></div>
+      <div class="menu-item"><button onclick="addItem('새우튀김', 4000)">새우튀김 (₩4,000)</button></div>
+      <div class="menu-item"><button onclick="addItem('아이스커피', 3500)">아이스커피 (₩3,500)</button></div>
+      <div class="menu-item"><button onclick="addItem('치즈스틱', 2500)">치즈스틱 (₩2,500)</button></div>
+    </div>
+
+    <div id="orderList"></div>
+    <p id="totalPrice"></p>
+    <button onclick="submitOrder()">주문 완료</button>
+  </div>
+
+  <div id="paymentSection" class="hidden">
+    <h2>💳 결제하기</h2>
+    <div id="paymentSummary"></div>
+    <p>결제 수단을 선택하세요:</p>
+    <button onclick="submitPayment('카드')">카드 결제</button>
+    <button onclick="submitPayment('현금')">현금 결제</button>
+  </div>
+
+  <div id="result" class="hidden"></div>
+
+  <div id="restart" class="hidden">
+    <button onclick="resetGame()">다시 하기</button>
+  </div>
+
+  <div id="home" class="hidden">
+    <button onclick="goHome()">홈으로 돌아가기</button>
+  </div>
+
+  <script>
+    const allMenus = ['햄버거','감자튀김','콜라','핫도그','새우튀김','아이스커피','치즈스틱'];
+    let mission = [];
+    let requiredPayment = '';
+    let missionItems = [];
+    let orderItems = [];
+    let paymentMethod = '';
+
+    function getRandomMenus(count) {
+      const shuffled = [...allMenus].sort(() => 0.5 - Math.random());
+      return shuffled.slice(0, count);
+    }
+
+    function startGame() {
+      mission = getRandomMenus(3);
+      missionItems = mission.map(item => ({ name: item, qty: Math.floor(Math.random() * 2) + 1 }));
+      const missionText = missionItems.map(i => `${i.name} ${i.qty}개`).join(', ');
+      requiredPayment = Math.random() < 0.5 ? '카드' : '현금';
+      document.getElementById('missionText').innerText = `🎯 미션: ${missionText} 주문하고 ${requiredPayment}로 결제하세요!`;
+      document.getElementById('start').classList.add('hidden');
+      document.getElementById('menuSection').classList.remove('hidden');
+      document.getElementById('result').classList.add('hidden');
+      document.getElementById('restart').classList.add('hidden');
+      document.getElementById('home').classList.add('hidden');
+      document.getElementById('paymentSection').classList.add('hidden');
+      renderOrder();
+    }
+
+    function addItem(name, price) {
+      const existing = orderItems.find(i => i.name === name);
+      if (existing) existing.qty++;
+      else orderItems.push({ name, price, qty: 1 });
+      renderOrder();
+    }
+
+    function changeQty(index, delta) {
+      const item = orderItems[index];
+      item.qty += delta;
+      if (item.qty <= 0) orderItems.splice(index, 1);
+      renderOrder();
+    }
+
+    function removeItem(index) {
+      orderItems.splice(index, 1);
+      renderOrder();
+    }
+
+    function renderOrder() {
+      const list = document.getElementById('orderList');
+      list.innerHTML = '';
+      let total = 0;
+      orderItems.forEach((item, i) => {
+        total += item.price * item.qty;
+        const div = document.createElement('div');
+        div.className = 'order-item';
+        div.innerHTML = `${item.name} x ${item.qty} (₩${item.price})
+          <button class="qty-btn" onclick="changeQty(${i}, 1)">+</button>
+          <button class="qty-btn" onclick="changeQty(${i}, -1)">-</button>
+          <button class="remove-btn" onclick="removeItem(${i})">X</button>`;
+        list.appendChild(div);
+      });
+      document.getElementById('totalPrice').innerText = `총 금액: ₩${total.toLocaleString()}`;
+    }
+
+    function submitOrder() {
+      if (orderItems.length === 0) {
+        alert('주문할 메뉴를 선택해주세요.');
+        return;
+      }
+      document.getElementById('menuSection').classList.add('hidden');
+      renderSummary();
+      document.getElementById('paymentSection').classList.remove('hidden');
+    }
+
+    function renderSummary() {
+      const summary = document.getElementById('paymentSummary');
+      let total = 0;
+      const list = orderItems.map(i => {
+        total += i.price * i.qty;
+        return `<li>${i.name} x ${i.qty}개 - ₩${i.price * i.qty}</li>`;
+      }).join('');
+      summary.innerHTML = `<ul>${list}</ul><p><strong>총 결제 금액: ₩${total.toLocaleString()}</strong></p>`;
+    }
+
+    function submitPayment(method) {
+      paymentMethod = method;
+      const selected = orderItems.map(i => ({ name: i.name, qty: i.qty })).sort((a, b) => a.name.localeCompare(b.name));
+      const missionSorted = [...missionItems].sort((a, b) => a.name.localeCompare(b.name));
+      const isCorrect = JSON.stringify(selected) === JSON.stringify(missionSorted);
+      const result = document.getElementById('result');
+      result.classList.remove('hidden');
+
+      if (isCorrect && paymentMethod === requiredPayment) {
+        result.innerHTML = `<p class="success">🎉 정답입니다! 성공! (${paymentMethod} 결제)</p>`;
+      } else {
+        if (!isCorrect) {
+          result.innerHTML = `<p class="fail">❌ 주문이 미션과 다릅니다. (${paymentMethod} 결제)</p>`;
+        } else {
+          result.innerHTML = `<p class="fail">❌ 결제 방식이 미션과 다릅니다. 미션: ${requiredPayment}, 선택: ${paymentMethod}</p>`;
+        }
+      }
+
+      document.getElementById('restart').classList.remove('hidden');
+      document.getElementById('home').classList.remove('hidden');
+    }
+
+    function resetGame() {
+      document.getElementById('start').classList.remove('hidden');
+      document.getElementById('menuSection').classList.add('hidden');
+      document.getElementById('paymentSection').classList.add('hidden');
+      document.getElementById('result').classList.add('hidden');
+      document.getElementById('restart').classList.add('hidden');
+      document.getElementById('home').classList.add('hidden');
+      document.getElementById('orderList').innerHTML = '';
+      document.getElementById('totalPrice').innerText = '';
+      document.getElementById('missionText').innerText = '';
+      document.getElementById('paymentSummary').innerHTML = '';
+      orderItems = [];
+      mission = [];
+      missionItems = [];
+      requiredPayment = '';
+      paymentMethod = '';
+    }
+
+    function goHome() {
+      document.getElementById('start').classList.remove('hidden');
+      document.getElementById('menuSection').classList.add('hidden');
+      document.getElementById('paymentSection').classList.add('hidden');
+      document.getElementById('result').classList.add('hidden');
+      document.getElementById('restart').classList.add('hidden');
+      document.getElementById('home').classList.add('hidden');
+      document.getElementById('orderList').innerHTML = '';
+      document.getElementById('totalPrice').innerText = '';
+      document.getElementById('missionText').innerText = '';
+      document.getElementById('paymentSummary').innerHTML = '';
+      orderItems = [];
+      mission = [];
+      missionItems = [];
+      requiredPayment = '';
+      paymentMethod = '';
+    }
+  </script>
+</body>
+</html>
